@@ -1,7 +1,6 @@
-package NewHoliday
+package moyu
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/fumiama/cron"
@@ -12,7 +11,12 @@ import (
 )
 
 func init() { // 插件主体
-	registerNotice() // 开启提醒
+	// 定时任务每天10点执行一次
+	c := cron.New()
+	_, err := c.AddFunc("0 10 * * *", func() { sendNotice() })
+	if err != nil {
+		c.Start()
+	}
 
 	control.Register("moyu", &control.Options{
 		DisableOnDefault: true,
@@ -50,15 +54,6 @@ func init() { // 插件主体
 		})
 }
 
-// 定时任务每天10点执行一次
-func registerNotice() {
-	c := cron.New()
-	_, err := c.AddFunc("0 0 10 * * ?", func() { sendNotice() })
-	if err != nil {
-		c.Start()
-	}
-}
-
 // 获取数据拼接消息链并发送
 func sendNotice() {
 	m, ok := control.Lookup("moyu")
@@ -71,21 +66,22 @@ func sendNotice() {
 						[]message.MessageSegment{
 							message.Text(time.Now().Format("2006-01-02")),
 							message.Text("上午好，摸鱼人！\n工作再累，一定不要忘记摸鱼哦！有事没事起身去茶水间，去厕所，去廊道走走别老在工位上坐着，钱是老板的,但命是自己的。"),
+							message.Text("\n"),
 							message.Text(weekend()),
 							message.Text("\n"),
-							message.Text(NewHoliday("元旦", 2022, 1, 1)),
+							message.Text(NewHoliday("元旦", 1, 2022, 1, 1)),
 							message.Text("\n"),
-							message.Text(NewHoliday("春节", 2022, 1, 31)),
+							message.Text(NewHoliday("春节", 7, 2022, 1, 31)),
 							message.Text("\n"),
-							message.Text(NewHoliday("清明节", 2022, 4, 3)),
+							message.Text(NewHoliday("清明节", 1, 2022, 4, 3)),
 							message.Text("\n"),
-							message.Text(NewHoliday("劳动节", 2022, 4, 30)),
+							message.Text(NewHoliday("劳动节", 1, 2022, 4, 30)),
 							message.Text("\n"),
-							message.Text(NewHoliday("端午节", 2022, 6, 3)),
+							message.Text(NewHoliday("端午节", 1, 2022, 6, 3)),
 							message.Text("\n"),
-							message.Text(NewHoliday("中秋节", 2022, 9, 10)),
+							message.Text(NewHoliday("中秋节", 1, 2022, 9, 10)),
 							message.Text("\n"),
-							message.Text(NewHoliday("国庆节", 2022, 10, 1)),
+							message.Text(NewHoliday("国庆节", 7, 2022, 10, 1)),
 							message.Text("\n"),
 							message.Text("\n\n上班是帮老板赚钱，摸鱼是赚老板的钱！最后，祝愿天下所有摸鱼人，都能愉快的渡过每一天…"),
 						},
@@ -94,34 +90,5 @@ func sendNotice() {
 			}
 			return true
 		})
-	}
-}
-
-type holiday struct {
-	name string
-	date time.Time
-}
-
-func NewHoliday(name string, year int, month time.Month, day int) holiday {
-	return holiday{name: name, date: time.Date(year, month, day, 0, 0, 0, 0, time.Local)}
-}
-
-// 获取两个时间相差
-func (h holiday) String() string {
-	d := time.Until(h.date)
-	if d >= 0 {
-		return "距离" + h.name + "还有: " + d.String()
-	} else {
-		return "好好享受 " + h.name + " 假期吧!"
-	}
-}
-
-func weekend() string {
-	t := time.Now().Weekday()
-	switch t {
-	case time.Sunday, time.Saturday:
-		return "\n好好享受周末吧！"
-	default:
-		return fmt.Sprintf("\n距离周末还有:%d天！", 5-t)
 	}
 }

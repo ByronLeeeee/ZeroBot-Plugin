@@ -32,6 +32,7 @@ import (
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin_fortune"   // 运势
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin_hs"        // 炉石
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin_minecraft" // MCSManager
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin_moyu"      // 摸鱼
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin_music"     // 点歌
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin_omikuji"   // 浅草寺求签
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin_reborn"    // 投胎
@@ -75,8 +76,8 @@ func init() {
 	d := flag.Bool("d", false, "Enable debug level log and higher.")
 	w := flag.Bool("w", false, "Enable warning level log and higher.")
 	h := flag.Bool("h", false, "Display this help.")
-	// 解析命令行参数，输入 `-g` 即可启用 gui
-	// g := flag.Bool("g", false, "Enable web gui.")
+	// 解析命令行参数，输入 `-g 监听地址:端口` 即可启用 gui
+	// g := flag.String("g", "127.0.0.1:3000", "Enable web gui.")
 
 	// 直接写死 AccessToken 时，请更改下面第二个参数
 	token = flag.String("t", "", "Set AccessToken of WSClient.")
@@ -99,7 +100,7 @@ func init() {
 	}
 	// 解析命令行参数，输入 `-g` 即可启用 gui
 	// if *g {
-	// 	webctrl.InitGui()
+	// 	webctrl.InitGui(*g)
 	// }
 }
 
