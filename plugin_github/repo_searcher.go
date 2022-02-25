@@ -9,21 +9,22 @@ import (
 	"net/url"
 	"strings"
 
+	control "github.com/FloatTech/zbputils/control"
 	zero "github.com/wdvxdr1123/ZeroBot"
 	"github.com/wdvxdr1123/ZeroBot/message"
 
-	"github.com/FloatTech/ZeroBot-Plugin/control"
+	"github.com/FloatTech/zbputils/control/order"
 
 	"github.com/tidwall/gjson"
 )
 
 func init() { // 插件主体
-	control.Register("github", &control.Options{
+	control.Register("github", order.AcquirePrio(), &control.Options{
 		DisableOnDefault: false,
 		Help: "GitHub仓库搜索\n" +
 			"- >github [xxx]\n" +
 			"- >github -p [xxx]",
-	}).OnRegex(`^>github\s(-.{1,10}? )?(.*)$`).SetBlock(true).FirstPriority().
+	}).OnRegex(`^>github\s(-.{1,10}? )?(.*)$`).SetBlock(true).
 		Handle(func(ctx *zero.Ctx) {
 			// 发送请求
 			header := http.Header{
@@ -47,30 +48,56 @@ func init() { // 插件主体
 			// 发送结果
 			switch ctx.State["regex_matched"].([]string)[1] {
 			case "-p ": // 图片模式
-				ctx.SendChain(message.Image(
-					"https://opengraph.githubassets.com/0/"+repo.Get("full_name").Str,
-				).Add("cache", 0))
-			default:
-				ctx.SendChain(message.Text(
-					repo.Get("full_name").Str, "\n",
-					"Description: ",
-					repo.Get("description").Str, "\n",
-					"Star/Fork/Issue: ",
-					repo.Get("watchers").Int(), "/", repo.Get("forks").Int(), "/", repo.Get("open_issues").Int(), "\n",
-					"Language: ",
-					notnull(repo.Get("language").Str, "None"), "\n",
-					"License: ",
-					notnull(strings.ToUpper(repo.Get("license.key").Str), "None"), "\n",
-					"Last pushed: ",
-					repo.Get("pushed_at").Str, "\n",
-					"Jump: ",
-					repo.Get("html_url").Str, "\n",
-				))
+				ctx.SendChain(
+					message.Image(
+						"https://opengraph.githubassets.com/0/"+repo.Get("full_name").Str,
+					).Add("cache", 0),
+				)
+			case "-t ": // 文字模式
+				ctx.SendChain(
+					message.Text(
+						repo.Get("full_name").Str, "\n",
+						"Description: ",
+						repo.Get("description").Str, "\n",
+						"Star/Fork/Issue: ",
+						repo.Get("watchers").Int(), "/", repo.Get("forks").Int(), "/", repo.Get("open_issues").Int(), "\n",
+						"Language: ",
+						notnull(repo.Get("language").Str, "None"), "\n",
+						"License: ",
+						notnull(strings.ToUpper(repo.Get("license.key").Str), "None"), "\n",
+						"Last pushed: ",
+						repo.Get("pushed_at").Str, "\n",
+						"Jump: ",
+						repo.Get("html_url").Str, "\n",
+					),
+				)
+			default: // 文字模式
+				ctx.SendChain(
+					message.Text(
+						repo.Get("full_name").Str, "\n",
+						"Description: ",
+						repo.Get("description").Str, "\n",
+						"Star/Fork/Issue: ",
+						repo.Get("watchers").Int(), "/", repo.Get("forks").Int(), "/", repo.Get("open_issues").Int(), "\n",
+						"Language: ",
+						notnull(repo.Get("language").Str, "None"), "\n",
+						"License: ",
+						notnull(strings.ToUpper(repo.Get("license.key").Str), "None"), "\n",
+						"Last pushed: ",
+						repo.Get("pushed_at").Str, "\n",
+						"Jump: ",
+						repo.Get("html_url").Str, "\n",
+					),
+					message.Image(
+						"https://opengraph.githubassets.com/0/"+repo.Get("full_name").Str,
+					).Add("cache", 0),
+				)
 			}
 		})
 }
 
 // notnull 如果传入文本为空，则返回默认值
+//nolint: unparam
 func notnull(text, defstr string) string {
 	if text == "" {
 		return defstr

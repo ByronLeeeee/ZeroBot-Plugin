@@ -11,8 +11,13 @@ import (
 	zero "github.com/wdvxdr1123/ZeroBot"
 	"github.com/wdvxdr1123/ZeroBot/message"
 
-	"github.com/FloatTech/ZeroBot-Plugin/control"
-	"github.com/FloatTech/ZeroBot-Plugin/utils/math"
+	control "github.com/FloatTech/zbputils/control"
+	"github.com/FloatTech/zbputils/ctxext"
+	"github.com/FloatTech/zbputils/img/pool"
+	"github.com/FloatTech/zbputils/math"
+	"github.com/FloatTech/zbputils/process"
+
+	"github.com/FloatTech/zbputils/control/order"
 )
 
 const (
@@ -21,15 +26,15 @@ const (
 )
 
 var (
-	queue = make(chan string, capacity)
+	queue = make(chan [2]string, capacity)
 )
 
 func init() {
-	control.Register("lolicon", &control.Options{
+	control.Register("lolicon", order.AcquirePrio(), &control.Options{
 		DisableOnDefault: false,
 		Help: "lolicon\n" +
 			"- 来份萝莉",
-	}).OnFullMatch("来份萝莉").SetBlock(true).
+	}).ApplySingle(ctxext.DefaultSingle).OnFullMatch("来份萝莉").SetBlock(true).
 		Handle(func(ctx *zero.Ctx) {
 			go func() {
 				for i := 0; i < math.Min(cap(queue)-len(queue), 2); i++ {
@@ -50,15 +55,32 @@ func init() {
 						continue
 					}
 					url := json.Get("data.0.urls.original").Str
-					ctx.SendGroupMessage(0, message.Image(strings.ReplaceAll(url, "i.pixiv.cat", "i.pixiv.re")))
-					queue <- url
+					url = strings.ReplaceAll(url, "i.pixiv.cat", "i.pixiv.re")
+					name := url[strings.LastIndex(url, "/")+1 : len(url)-4]
+					m, err := pool.GetImage(name)
+					if err != nil {
+						m.SetFile(url)
+						_, err = m.Push(ctxext.SendToSelf(ctx), ctxext.GetMessage(ctx))
+						process.SleepAbout1sTo2s()
+					}
+					if err == nil {
+						queue <- [2]string{name, m.String()}
+					} else {
+						queue <- [2]string{name, url}
+					}
 				}
 			}()
 			select {
-			case <-time.After(time.Second * 10):
+			case <-time.After(time.Minute):
 				ctx.SendChain(message.Text("ERROR: 等待填充，请稍后再试......"))
-			case url := <-queue:
-				ctx.SendChain(message.Image(url))
+			case o := <-queue:
+				name := o[0]
+				url := o[1]
+				err := pool.SendRemoteImageFromPool(name, url, ctxext.Send(ctx), ctxext.GetMessage(ctx))
+				if err != nil {
+					ctx.SendChain(message.Text("ERROR:", err))
+					return
+				}
 			}
 		})
 }

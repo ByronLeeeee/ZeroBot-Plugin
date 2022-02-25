@@ -1,32 +1,22 @@
-/*
- * @Author: Kanri
- * @Date: 2021-10-15 21:23:14
- * @LastEditors: Kanri
- * @LastEditTime: 2021-10-15 21:42:51
- * @Description:
- */
 // Package shindan 基于 https://shindanmaker.com 的测定小功能
 package shindan
 
 import (
-	"strconv"
-	"time"
-
 	"github.com/FloatTech/AnimeAPI/shindanmaker"
+	log "github.com/sirupsen/logrus"
 	zero "github.com/wdvxdr1123/ZeroBot"
-	"github.com/wdvxdr1123/ZeroBot/extension/rate"
 	"github.com/wdvxdr1123/ZeroBot/message"
+	"github.com/wdvxdr1123/ZeroBot/utils/helper"
 
-	"github.com/FloatTech/ZeroBot-Plugin/control"
-)
+	"github.com/FloatTech/zbputils/control/order"
 
-var (
-	// 限制调用频率
-	limit = rate.NewManager(time.Minute*5, 5)
+	control "github.com/FloatTech/zbputils/control"
+	"github.com/FloatTech/zbputils/ctxext"
+	"github.com/FloatTech/zbputils/img/text"
 )
 
 func init() {
-	engine := control.Register("shindan", &control.Options{
+	engine := control.Register("shindan", order.AcquirePrio(), &control.Options{
 		DisableOnDefault: false,
 		Help: "shindan\n" +
 			"- 今天是什么少女[@xxx]\n" +
@@ -34,33 +24,34 @@ func init() {
 			"- 卖萌[@xxx]\n" +
 			"- 抽老婆[@xxx]",
 	})
-	engine.OnPrefix("异世界转生", number(587874)).SetBlock(true).FirstPriority().Handle(handle)
-	engine.OnPrefix("今天是什么少女", number(162207)).SetBlock(true).FirstPriority().Handle(handle)
-	engine.OnPrefix("卖萌", number(360578)).SetBlock(true).FirstPriority().Handle(handle)
-	engine.OnPrefix("抽老婆", number(1075116)).SetBlock(true).FirstPriority().Handle(handle)
+	engine.OnPrefix("异世界转生", number(587874)).SetBlock(true).Limit(ctxext.LimitByUser).Handle(handle)
+	engine.OnPrefix("今天是什么少女", number(162207)).SetBlock(true).Limit(ctxext.LimitByUser).Handle(handle)
+	engine.OnPrefix("卖萌", number(360578)).SetBlock(true).Limit(ctxext.LimitByUser).Handle(handle)
+	engine.OnPrefix("抽老婆", number(1075116)).SetBlock(true).Limit(ctxext.LimitByUser).Handle(handle)
 }
 
 // shindanmaker 处理函数
 func handle(ctx *zero.Ctx) {
-	if !limit.Load(ctx.Event.UserID).Acquire() {
-		ctx.SendChain(message.Text("请稍后重试0x0..."))
-		return
-	}
 	// 获取名字
-	name := ctx.State["args"].(string)
-	if len(ctx.Event.Message) > 1 && ctx.Event.Message[1].Type == "at" {
-		qq, _ := strconv.ParseInt(ctx.Event.Message[1].Data["qq"], 10, 64)
-		name = ctx.GetGroupMemberInfo(ctx.Event.GroupID, qq, false).Get("nickname").Str
-	} else if name == "" {
-		name = ctx.Event.Sender.NickName
-	}
+	name := ctxext.NickName(ctx)
 	// 调用接口
-	text, err := shindanmaker.Shindanmaker(ctx.State["id"].(int64), name)
+	txt, err := shindanmaker.Shindanmaker(ctx.State["id"].(int64), name)
 	if err != nil {
 		ctx.SendChain(message.Text("ERROR: ", err))
 	}
 	// TODO: 可注入
-	ctx.Send(text)
+	switch ctx.State["id"].(int64) {
+	case 587874, 162207:
+		data, err := text.RenderToBase64(txt, text.FontFile, 400, 20)
+		if err != nil {
+			log.Errorln("[shindan]:", err)
+		}
+		if id := ctx.SendChain(message.Image("base64://" + helper.BytesToString(data))); id.ID() == 0 {
+			ctx.SendChain(message.Text("ERROR: 可能被风控了"))
+		}
+	default:
+		ctx.Send(txt)
+	}
 }
 
 // 传入 shindanmaker id
